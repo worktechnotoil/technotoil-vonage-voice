@@ -1,97 +1,92 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Example: VonageVoice
 
-# Getting Started
+This example app demonstrates how to install and run the local `@technotoil/VonageVoice` library from the repo and how to call the basic API from JavaScript.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+Prerequisites:
+- macOS with Xcode (for iOS)
+- Android Studio / Android SDK (for Android)
+- Node.js and Yarn (or npm)
+- CocoaPods (for iOS native dependencies)
 
-## Step 1: Start Metro
+Recommended local install workflow (avoids Yarn memory/copy issues):
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
-
-To start the Metro dev server, run the following command from the root of your React Native project:
+1. From the library root (one level above `example`) create a tarball:
 
 ```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+# from /Users/apple/Documents/Reactnative/library/@technotoil/VonageVoice
+npm pack
+# this produces a file like technotoil-vonagevoice-1.0.0.tgz
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+2. Install the tarball into the example app:
 
 ```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+cd example
+yarn add ../technotoil-vonagevoice-1.0.0.tgz
+# OR: npm install ../technotoil-vonagevoice-1.0.0.tgz
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+3. Install iOS pods (if running iOS):
 
 ```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
+cd ios
 bundle exec pod install
+cd ..
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+4. Run Metro and launch the app:
 
 ```sh
-# Using npm
-npm run ios
+# Start Metro
+yarn start
 
-# OR using Yarn
+# Android
+yarn android
+
+# iOS
 yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Required Android permissions (add to `AndroidManifest.xml` of the app if needed):
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+- `android.permission.RECORD_AUDIO`
+- `android.permission.MODIFY_AUDIO_SETTINGS`
+- `android.permission.INTERNET`
+- `android.permission.ACCESS_NETWORK_STATE`
 
-## Step 3: Modify your app
+Required iOS Info.plist entries (if using microphone/network features):
 
-Now that you have successfully run the app, let's make changes!
+- `NSMicrophoneUsageDescription` — reason for microphone access
+- `NSCameraUsageDescription` — if you use video features (not required for voice only)
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+Basic usage (JavaScript)
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+```ts
+import VonageVoice from '@technotoil/VonageVoice';
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+// Example: login
+VonageVoice.login({ apiKey: 'KEY', apiSecret: 'SECRET' })
+  .then(() => console.log('logged in'))
+  .catch(err => console.warn('login failed', err));
 
-## Congratulations! :tada:
+// Place a call
+VonageVoice.call({ to: '+1234567890' });
 
-You've successfully run and modified your React Native App. :partying_face:
+// Listen to events
+import { NativeEventEmitter, NativeModules } from 'react-native';
+const emitter = new NativeEventEmitter(NativeModules.VonageVoice);
+emitter.addListener('onCallStateChanged', event => {
+  console.log('call state', event);
+});
+```
 
-### Now what?
+Notes & troubleshooting
+- If you see Kotlin compile errors referring to `NativeVonageVoiceSpec`, ensure the Android module was converted to a plain `ReactContextBaseJavaModule` (this example library disables TurboModules/codegen by default).
+- If you get a duplicate launcher icon on Android, ensure the library's `android/src/main/AndroidManifest.xml` does not include an `application` element with a `MAIN/LAUNCHER` activity. The example app provides the launcher activity.
+- If Yarn complains about duplicate workspace names, make sure the `example/package.json` `name` is different from the library package name.
+- For local development, using `npm pack` then installing the produced `.tgz` in the example is the most reliable approach.
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+Further work
+- If you want the example project files renamed (remove the `Example` suffix across Xcode/Android project files), I can perform the multi-file rename and update Pod targets — tell me to proceed and I'll do that next.
 
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Happy hacking!

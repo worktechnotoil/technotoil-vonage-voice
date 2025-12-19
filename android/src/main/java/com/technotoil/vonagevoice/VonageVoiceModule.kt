@@ -1,20 +1,31 @@
 package com.technotoil.vonagevoice
 
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.Promise
 
-@ReactModule(name = VonageVoiceModule.NAME)
+/**
+ * VonageVoice native module (non-codegen implementation).
+ *
+ * We intentionally avoid generated `Native*Spec` types so the module
+ * compiles even when RN codegen is not enabled. Replace/extend methods
+ * below with actual Vonage SDK integrations.
+ */
 class VonageVoiceModule(reactContext: ReactApplicationContext) :
-  NativeVonageVoiceSpec(reactContext) {
+  ReactContextBaseJavaModule(reactContext) {
 
   override fun getName(): String {
     return NAME
   }
 
-  // Example method
-  // See https://reactnative.dev/docs/native-modules-android
-  override fun multiply(a: Double, b: Double): Double {
-    return a * b
+  /**
+   * Example asynchronous method that resolves the product of two numbers.
+   * Replace this with real Vonage SDK methods when wiring the native API.
+   */
+  @ReactMethod
+  fun multiply(a: Double, b: Double, promise: Promise) {
+    promise.resolve(a * b)
   }
 
   companion object {

@@ -1,7 +1,7 @@
 {
   "name": "@technotoil/vonage-voice",
   "version": "0.1.0",
-  "description": "make call with vonagevoice",
+  "description": "React Native bridge for Vonage Voice (uses VonageClientSDKVoice). Provides call, answer, reject, hangup, mute, unmute, sendDTMF and event listeners. Requires microphone + network permissions on Android/iOS. Android uses com.vonage:client-sdk-voice:2.1.2; iOS uses Pod 'VonageClientSDKVoice'.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -38,7 +38,8 @@
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
-    "release": "release-it --only-version"
+    "release": "release-it --only-version",
+    "build": "tsc"
   },
   "keywords": [
     "react-native",
@@ -84,8 +85,13 @@
     "typescript": "^5.9.2"
   },
   "peerDependencies": {
-    "react": "*",
-    "react-native": "*"
+    "@react-native/new-app-screen": "0.82.1",
+    "@react-navigation/native": "^7.1.22",
+    "axios": "^1.13.2",
+    "react": "19.1.1",
+    "react-native": "0.82.1",
+    "react-native-permissions": "^5.4.4",
+    "react-native-safe-area-context": "^5.5.2"
   },
   "workspaces": [
     "example"

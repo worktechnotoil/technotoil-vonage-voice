@@ -38,9 +38,8 @@ class VonageVoice: NSObject {
     checkAndRequestMicrophonePermission()
 
     // Initialize the SDK client and set delegate to receive callbacks.
-    let voiceClient = VGVoiceClient()
-    self.client = voiceClient
-    voiceClient.delegate = self
+    client = VGVoiceClient()
+    client?.delegate = self
   }
 
   // MARK: - Permissions & Audio Session

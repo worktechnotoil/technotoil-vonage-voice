@@ -121,7 +121,7 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      const response = await axios.get('api_url');
+      const response = await axios.get('https://api.dev.linkrwave.io/user/vonage/callToken/6912cd96ce02275a5135f412');
       // Expect the API to return { token: string }
       await VonageVoice.login(response.data.token);
     } catch (error) {
@@ -151,7 +151,7 @@ export default function App() {
   const handleCall = async () => {
     const finalNumber = formatNumberUniversal(number);
     try {
-      const userNumber = ''; //your number
+      const userNumber = '12134098481'; //your number
       const res = await VonageVoice.call(finalNumber, userNumber);
       // Expect `res` to be a callId string
       setSessionId(String(res));
@@ -278,16 +278,16 @@ export default function App() {
       | ReactElement<unknown, string | JSXElementConstructor<any>>
       | Iterable<ReactNode>
       | Promise<
-          | string
-          | number
-          | bigint
-          | boolean
-          | ReactPortal
-          | ReactElement<unknown, string | JSXElementConstructor<any>>
-          | Iterable<ReactNode>
-          | null
-          | undefined
-        >
+        | string
+        | number
+        | bigint
+        | boolean
+        | ReactPortal
+        | ReactElement<unknown, string | JSXElementConstructor<any>>
+        | Iterable<ReactNode>
+        | null
+        | undefined
+      >
       | null
       | undefined,
     subText = ''

@@ -72,6 +72,7 @@ class VonageVoice: NSObject {
     let session = AVAudioSession.sharedInstance()
     do {
       try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .allowBluetoothA2DP])
+      try session.setPreferredIOBufferDuration(0.02) // 20ms
       try session.setActive(true)
 
       // Prefer built-in microphone input if available

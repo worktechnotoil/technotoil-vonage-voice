@@ -220,15 +220,44 @@ class VonageVoice: NSObject {
     resolve(["callId": callId, "status": status.rawValue])
   }
 
-  @objc func setSpeaker(_ enabled: Bool, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+  // @objc func setSpeaker(_ enabled: Bool, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+  //   do {
+  //     let session = AVAudioSession.sharedInstance()
+  //     try session.overrideOutputAudioPort(enabled ? .speaker : .none)
+  //     resolve(true)
+  //   } catch {
+  //     reject("AUDIO_ERROR", error.localizedDescription, error)
+  //   }
+  // }
+
+@objc func setSpeaker(_ enabled: Bool, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
     do {
       let session = AVAudioSession.sharedInstance()
+      
+      // 1. Ensure the category and options are correct. 
+      // If enabled, we add .defaultToSpeaker to the options.
+      var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+      if enabled {
+          options.insert(.defaultToSpeaker)
+      }
+      
+      try session.setCategory(.playAndRecord, mode: .voiceChat, options: options)
+      
+      // 2. Force the override output port
       try session.overrideOutputAudioPort(enabled ? .speaker : .none)
+      
+      // 3. Make sure session is active
+      try session.setActive(true)
+      
       resolve(true)
     } catch {
+      // If it fails the first time, try a "lazy" override after 0.1 seconds
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+          try? AVAudioSession.sharedInstance().overrideOutputAudioPort(enabled ? .speaker : .none)
+      }
       reject("AUDIO_ERROR", error.localizedDescription, error)
     }
-  }
+}
 
   // MARK: - DTMF
 

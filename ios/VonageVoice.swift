@@ -29,6 +29,8 @@ class VonageVoice: NSObject {
   /// Current active call identifier (if any).
   private var currentCallId: String?
 
+private var isSpeakerEnabled = false  
+
   /// Cache of last known leg statuses keyed by call id.
   private var callStatuses: [String: VGLegStatus] = [:]
 
@@ -68,26 +70,51 @@ class VonageVoice: NSObject {
   }
 
   /// Configure AVAudioSession for voice chat usage and prefer built-in mic if available.
-  private func configureAudioSession() {
+  // private func configureAudioSession() {
+  //   let session = AVAudioSession.sharedInstance()
+  //   do {
+  //     try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .allowBluetoothA2DP])
+  //     try session.setPreferredIOBufferDuration(0.02) // 20ms
+  //     try session.setActive(true)
+
+  //     // Prefer built-in microphone input if available
+  //     if let mic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+  //       try? session.setPreferredInput(mic)
+  //     }
+
+  //     // Debug logging — safe to remove in production
+  //     print("🔊 Audio session active")
+  //     print("Inputs:", session.currentRoute.inputs)
+  //     print("Outputs:", session.currentRoute.outputs)
+  //   } catch {
+  //     print("❌ Audio session error:", error.localizedDescription)
+  //   }
+  // }
+
+private func configureAudioSession() {
     let session = AVAudioSession.sharedInstance()
     do {
-      try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .allowBluetoothA2DP])
-      try session.setPreferredIOBufferDuration(0.02) // 20ms
+      // Set options based on the stored preference
+      var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+      if isSpeakerEnabled {
+          options.insert(.defaultToSpeaker)
+      }
+      
+      try session.setCategory(.playAndRecord, mode: .voiceChat, options: options)
+      try session.setPreferredIOBufferDuration(0.02) 
+      // Apply the routing override
+      try session.overrideOutputAudioPort(isSpeakerEnabled ? .speaker : .none)
+      
       try session.setActive(true)
-
-      // Prefer built-in microphone input if available
+      
+      // Prefer built-in microphone
       if let mic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
         try? session.setPreferredInput(mic)
       }
-
-      // Debug logging — safe to remove in production
-      print("🔊 Audio session active")
-      print("Inputs:", session.currentRoute.inputs)
-      print("Outputs:", session.currentRoute.outputs)
     } catch {
       print("❌ Audio session error:", error.localizedDescription)
     }
-  }
+}
 
   // MARK: - JS Exposed API (Promise based)
 
@@ -231,32 +258,9 @@ class VonageVoice: NSObject {
   // }
 
 @objc func setSpeaker(_ enabled: Bool, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-    do {
-      let session = AVAudioSession.sharedInstance()
-      
-      // 1. Ensure the category and options are correct. 
-      // If enabled, we add .defaultToSpeaker to the options.
-      var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
-      if enabled {
-          options.insert(.defaultToSpeaker)
-      }
-      
-      try session.setCategory(.playAndRecord, mode: .voiceChat, options: options)
-      
-      // 2. Force the override output port
-      try session.overrideOutputAudioPort(enabled ? .speaker : .none)
-      
-      // 3. Make sure session is active
-      try session.setActive(true)
-      
-      resolve(true)
-    } catch {
-      // If it fails the first time, try a "lazy" override after 0.1 seconds
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-          try? AVAudioSession.sharedInstance().overrideOutputAudioPort(enabled ? .speaker : .none)
-      }
-      reject("AUDIO_ERROR", error.localizedDescription, error)
-    }
+    isSpeakerEnabled = enabled
+    configureAudioSession()
+    resolve(true)
 }
 
   // MARK: - DTMF

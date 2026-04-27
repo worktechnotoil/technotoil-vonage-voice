@@ -2,6 +2,7 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import AVFoundation
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -23,6 +24,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     window = UIWindow(frame: UIScreen.main.bounds)
 
+ AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                print("Allow microphone use. Response: ", granted)
+            }
     factory.startReactNative(
       withModuleName: "VonageVoice",
       in: window,

@@ -10,7 +10,7 @@
     "build:ios": "react-native build-ios --mode Debug"
   },
   "dependencies": {
-    "@technotoil/vonage-voice": "file:../technotoil-vonage-voice-0.1.4.tgz",
+    "@technotoil/vonage-voice": "file:../technotoil-vonage-voice-0.1.5.tgz",
     "axios": "^1.13.2",
     "react": "19.2.0",
     "react-native": "0.83.0",

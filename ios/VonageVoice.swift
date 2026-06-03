@@ -42,7 +42,7 @@ class VonageVoice: NSObject {
     client?.delegate = self
   }
 
-  // MARK: - Permissions & Audio Session
+  // MARK: - Permissions
 
   /// Ensure microphone permission is granted; if not, request it.
   func checkAndRequestMicrophonePermission() {
@@ -50,13 +50,10 @@ class VonageVoice: NSObject {
 
     switch audioSession.recordPermission {
     case .granted:
-      // Permission already granted — nothing to do.
       break
     case .denied:
-      // Informative log; consider exposing a callback to JS to prompt user.
       print("Microphone access denied. Direct user to Settings.")
     case .undetermined:
-      // Request permission and log the result.
       audioSession.requestRecordPermission { granted in
         DispatchQueue.main.async {
           print(granted ? "Permission granted after request." : "Permission denied after request.")
@@ -67,33 +64,79 @@ class VonageVoice: NSObject {
     }
   }
 
-  /// Configure AVAudioSession for voice chat usage and prefer built-in mic if available.
-  private func configureAudioSession() {
+  // MARK: - Audio Session Helpers
+
+  /// HARD RESET — Use this BEFORE media starts (in call() / answer()).
+  /// Deactivates and reconfigures from scratch. Safe because no live stream yet.
+  private func configureAudioSessionInitial() {
     let session = AVAudioSession.sharedInstance()
+
     do {
-      try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .allowBluetoothA2DP])
-      try session.setPreferredIOBufferDuration(0.02) // 20ms
+      // 1. Deactivate to clear any stuck state
+      try? session.setActive(false)
+
+      // 2. Set category for voice chat (NO defaultToSpeaker)
+      try session.setCategory(
+        .playAndRecord,
+        mode: .voiceChat,
+        options: [.allowBluetooth, .allowBluetoothA2DP]
+      )
+
+      // 3. Activate
       try session.setActive(true)
 
-       // 🔥 FORCE EARPIECE (MAIN FIX)
+      // 4. Force earpiece
       try session.overrideOutputAudioPort(.none)
 
-      // Prefer built-in microphone input if available
+      // 5. Prefer built-in microphone
       if let mic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
         try? session.setPreferredInput(mic)
       }
 
-// 🔥 RE-APPLY (Vonage override fix)
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.none)
-      }
-      // Debug logging — safe to remove in production
-      print("🔊 Audio session active")
-      print("Inputs:", session.currentRoute.inputs)
-      print("Outputs:", session.currentRoute.outputs)
+      print("✅ Initial audio session configured (earpiece)")
+      logAudioRoute()
+
     } catch {
-      print("❌ Audio session error:", error.localizedDescription)
+      print("❌ Initial audio config failed:", error.localizedDescription)
     }
+  }
+
+  /// SOFT OVERRIDE — Use this DURING an active call (status == 2).
+  /// NEVER deactivate the session here — that kills the live Vonage media stream.
+  private func forceEarpieceSoft() {
+    let session = AVAudioSession.sharedInstance()
+
+    do {
+      // Ensure session is active (no-op if already active, safe if not)
+      try? session.setActive(true)
+
+      // Just override the output route — don't touch category or input
+      try session.overrideOutputAudioPort(.none)
+
+      print("🔊 Soft override: earpiece")
+      logAudioRoute()
+
+      // Retry multiple times because Vonage may reset asynchronously
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        try? session.overrideOutputAudioPort(.none)
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        try? session.overrideOutputAudioPort(.none)
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        try? session.overrideOutputAudioPort(.none)
+      }
+
+    } catch {
+      print("❌ Soft earpiece override failed:", error.localizedDescription)
+    }
+  }
+
+  /// Debug helper to print current audio route.
+  private func logAudioRoute() {
+    let session = AVAudioSession.sharedInstance()
+    print("Current Route Inputs:", session.currentRoute.inputs.map { $0.portName })
+    print("Current Route Outputs:", session.currentRoute.outputs.map { $0.portName })
   }
 
   // MARK: - JS Exposed API (Promise based)
@@ -125,13 +168,10 @@ class VonageVoice: NSObject {
     let params: [String: Any] = ["to": to, "from": from]
 
     client?.serverCall(params) { error, callId in
-      // Ensure mic permission before proceeding
       guard AVAudioSession.sharedInstance().recordPermission == .granted else {
         reject("MIC_PERMISSION", "Microphone permission not granted", nil)
         return
       }
-
-      self.configureAudioSession()
 
       if let error = error {
         reject("CALL_FAILED", error.localizedDescription, error)
@@ -139,6 +179,10 @@ class VonageVoice: NSObject {
         self.currentCallId = callId
         self.sendEvent("onCallStarted", body: ["callId": callId, "to": to, "from": from])
         resolve(["callId": callId])
+
+        // 🔥 Configure audio immediately after call creation (no media yet, hard reset safe)
+        self.configureAudioSessionInitial()
+
       } else {
         reject("CALL_FAILED", "Unknown error creating call", nil)
       }
@@ -151,7 +195,9 @@ class VonageVoice: NSObject {
       return
     }
 
-    self.configureAudioSession()
+    // Configure audio before answering (media not fully started yet, hard reset safe)
+    configureAudioSessionInitial()
+
     client?.answer(callId) { error in
       if let error = error {
         reject("ANSWER_FAILED", error.localizedDescription, error)
@@ -228,45 +274,25 @@ class VonageVoice: NSObject {
     resolve(["callId": callId, "status": status.rawValue])
   }
 
-  // @objc func setSpeaker(_ enabled: Bool, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-  //   do {
-  //     let session = AVAudioSession.sharedInstance()
-  //     try session.overrideOutputAudioPort(enabled ? .speaker : .none)
-  //     resolve(true)
-  //   } catch {
-  //     reject("AUDIO_ERROR", error.localizedDescription, error)
-  //   }
-  // }
-
-
-
-
-@objc func setSpeaker(_ enabled: Bool, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+  @objc func setSpeaker(_ enabled: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     do {
-        let session = AVAudioSession.sharedInstance()
-        
-        // 1. Category same rahegi (NO defaultToSpeaker)
-        let options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
-        
-        try session.setCategory(.playAndRecord, mode: .voiceChat, options: options)
-        
-        // 2. Activate session pehle (important for consistency)
-        try session.setActive(true)
-        
-        // 3. Force output
-        try session.overrideOutputAudioPort(enabled ? .speaker : .none)
-        
-        resolve(true)
-        
+      let session = AVAudioSession.sharedInstance()
+
+      try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .allowBluetoothA2DP])
+      try session.setActive(true)
+      try session.overrideOutputAudioPort(enabled ? .speaker : .none)
+
+      // Retry fallback
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        try? AVAudioSession.sharedInstance().overrideOutputAudioPort(enabled ? .speaker : .none)
+      }
+
+      resolve(true)
+
     } catch {
-        // Retry fallback (same as your logic)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            try? AVAudioSession.sharedInstance().overrideOutputAudioPort(enabled ? .speaker : .none)
-        }
-        
-        reject("AUDIO_ERROR", error.localizedDescription, error)
+      reject("AUDIO_ERROR", error.localizedDescription, error)
     }
-}
+  }
 
   // MARK: - DTMF
 
@@ -308,12 +334,14 @@ extension VonageVoice: VGVoiceClientDelegate {
   func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: VGCallId, withLegId legId: String, andStatus status: VGLegStatus) {
     print("Leg Status Update:", status.rawValue, legId)
     callStatuses[callId] = status
-     print(status,"status3322")
+    print(status, "status3322")
+
+    // 🔥 CRITICAL FIX: When call connects (status 2), use SOFT override only.
+    // DO NOT deactivate the session here — that kills the live Vonage media stream.
     if status.rawValue == 2 {
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.none)
-        }
+      forceEarpieceSoft()
     }
+
     sendEvent("onCallStatus", body: ["callId": callId, "status": status.rawValue])
   }
 
